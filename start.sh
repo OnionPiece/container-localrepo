@@ -58,7 +58,7 @@ openssl x509 -req -days 365 -in ca.csr -signkey ca.key -out ca.crt
 cat ca.crt ca.key > ca.pem
 
 # get file server acl path_beg
-path_begs=""
+repo_path_begs=""
 lastline=""
 for i in `ls -R /var/www/html/ | egrep "^/" | sort -r`; do
     if [[ $i == "/var/www/html/repodata:" || $i == "/var/www/html/:" ]]; then
@@ -67,14 +67,29 @@ for i in `ls -R /var/www/html/ | egrep "^/" | sort -r`; do
     if [[ $lastline != "" ]]; then
         echo $i | grep -q $lastline
         if [[ $? -ne 0 ]]; then
-            path_begs="$path_begs /$lastline"
+            repo_path_begs="$repo_path_begs /$lastline"
         fi
     fi
     lastline=`echo $i | cut -d '/' -f 5- | cut -d ':' -f 1`
 done
-path_begs="$path_begs /$lastline"
+repo_path_begs="$repo_path_begs /$lastline"
+
+# get projects proxied by gitlab
+git_path_begs=""
+while IFS='' read -r line || [[ -n "$line" ]]; do
+    if [[ $line == "" || ${line:0:1} == "#" ]]; then
+        continue
+    fi
+    groupProj=`echo $line | awk '{print $2}'`
+    if [[ $groupProj == "-" ]]; then
+        groupProj=`echo $line | awk '{print $3}' | cut -d '/' -f 4-5 | cut -d '.' -f 1`
+    fi
+    git_path_begs="$git_path_begs /$groupProj"
+done < /gitlab_projects/Manifests
+
 
 # modify haproxy.cfg
+sed -i '/\sdaemon$/atune.ssl.default-dh-param  2048' /etc/haproxy/haproxy.cfg
 sed -i 's/\sdaemon$/ #daemon/g' /etc/haproxy/haproxy.cfg
 sed -i '/^frontend/,$d' /etc/haproxy/haproxy.cfg
 cat >> /etc/haproxy/haproxy.cfg << EOF
@@ -86,21 +101,25 @@ backend default_be
 EOF
 if [[ $GITLAB_IP != "" ]]; then
 cat >> /etc/haproxy/haproxy.cfg << EOF
-    acl use_repo path_beg $path_begs
-    acl use_git  hdr_beg(host) -m beg gitlab. github.
+    acl use_repo   path_beg $repo_path_begs
+    acl use_gitlab path_beg $git_path_begs
+    acl use_gitlab hdr_beg(host) -m beg gitlab.
+    acl use_github hdr_beg(host) -m beg github.
 
-    http-request set-header X-Forwarded-Protocol https if use_git
-    http-request set-header X-Forwarded-Proto https if use_git
-    http-request set-header X-Forwarded-Ssl on if use_git
-    http-request set-header X-Url-Scheme https if use_git
-
-    use-server repo if use_repo use_git
-
-    use-server gitlab if use_git
-    server     gitlab $GITLAB_IP:80 check weight 0
+    http-request set-header X-Forwarded-Protocol https if use_gitlab
+    http-request set-header X-Forwarded-Proto https    if use_gitlab
+    http-request set-header X-Forwarded-Ssl on         if use_gitlab
+    http-request set-header X-Url-Scheme https         if use_gitlab
 
     use-server repo if use_repo
     server     repo 127.0.0.1:8080 check weight 0
+
+    use-server gitlab if use_gitlab use_github
+    use-server gitlab if use_gitlab
+    server     gitlab $GITLAB_IP:80 check weight 0
+
+    use-server github if use_github
+    server     github github.com:443 ssl verify none
 
 EOF
 fi
@@ -111,6 +130,8 @@ listen tcp80
     bind :80
     server local 127.0.0.1:8080 check
 EOF
+haproxy -f /etc/haproxy/haproxy.cfg -c
+
 # setup a loop process to check and populate projects
 if [[ $GITLAB_IP != "" && $POP_PROJECTS == "true" ]]; then
     nohup sleep 3 && ./popPorjects.sh &
