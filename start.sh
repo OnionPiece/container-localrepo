@@ -67,12 +67,12 @@ for i in `ls -R /var/www/html/ | egrep "^/" | sort -r`; do
     if [[ $lastline != "" ]]; then
         echo $i | grep -q $lastline
         if [[ $? -ne 0 ]]; then
-            repo_path_begs="$repo_path_begs /$lastline"
+            repo_path_begs="$repo_path_begs /$lastline/"
         fi
     fi
     lastline=`echo $i | cut -d '/' -f 5- | cut -d ':' -f 1`
 done
-repo_path_begs="$repo_path_begs /$lastline"
+repo_path_begs="$repo_path_begs /$lastline/"
 
 # get projects proxied by gitlab
 git_path_begs=""
@@ -114,12 +114,11 @@ cat >> /etc/haproxy/haproxy.cfg << EOF
     use-server repo if use_repo
     server     repo 127.0.0.1:8080 check weight 0
 
-    use-server gitlab if use_gitlab use_github
+    use-server github if use_github !use_gitlab
+    server     github github.com:443 ssl verify none
+
     use-server gitlab if use_gitlab
     server     gitlab $GITLAB_IP:80 check weight 0
-
-    use-server github if use_github
-    server     github github.com:443 ssl verify none
 
 EOF
 fi
