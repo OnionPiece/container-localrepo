@@ -4,6 +4,7 @@
 #        http://openssl.6102.n7.nabble.com/cmd-line-and-subjectAltName-td47538.html#a47548
 #        http://wiki.cacert.org/FAQ/subjectAltName
 #        https://serverfault.com/questions/647479/haproxy-use-backend-match-order
+#        https://stackoverflow.com/questions/47094066/http-request-to-https-request-using-haproxy
 
 #
 # setup yum repo & file server
