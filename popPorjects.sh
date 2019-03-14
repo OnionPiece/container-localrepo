@@ -22,24 +22,29 @@ while true; do
         group=`echo $groupProj | cut -d '/' -f 1`
         project=`echo $groupProj | cut -d '/' -f 2`
 
-        curl -s -k $url/projects | grep -q $gitlab/$groupProj
+        groupId=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" $url/groups?search=$group | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
+        if [[ $groupId == "" ]]; then
+            groupId=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -X POST $url/groups -d '{"name":"'$group'", "path":"'$group'", "visibility":"public", "lfs_enabled":true, "parent_id": null}' | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
+            sleep 2
+        fi
+
+        curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" $url/groups/$groupId/projects | python -mjson.tool | grep "name\": \"$project\"" > /dev/null
         if [[ $? -eq 0 ]]; then
             continue
         fi
-        # process
-        namespace_id=`curl -s -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -k -X POST $url/groups -d '{"name":"'$group'", "path":"'$group'", "visibility":"public", "lfs_enabled":true, "parent_id": null}' | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
-        curl -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -k -X POST $url/projects -d '{"name":"'$project'", "path":"'$project'", "namespace_id": '$namespace_id', "default_branch": "master", "visibility":"public", "lfs_enabled":true}'
-        project_id=`curl -s -H "Private-Token: d6T5bNvoPU_6WfdodCLr" -H "Content-Type: application/json" -k $url/groups/$namespace_id/projects | python -mjson.tool | awk -F'/' '/"events"/{print $7}'`
-        # for case project is not public
-        curl -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -X PUT https://gitlab.local.io/api/v4/projects/$project_id -d '{"visibility":"public"}'
-        pushd /gitlab_projects/$folder
+
+        echo "Found project $group/$project not populated into gitlab.local.io"
+        curl -s -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -k -X POST $url/projects -d '{"name":"'$project'", "path":"'$project'", "namespace_id": '$groupId', "default_branch": "master", "visibility":"public", "lfs_enabled":true}' > /dev/null
+        sleep 1
+
+        pushd /gitlab_projects/$folder > /dev/null
         rm -rf .git
         git init
-        git remote add origin https://$GIT_USER:$GIT_PASS@$gitlab/$groupProj.git
+        git remote add origin https://$GIT_USER:$GIT_PASS@$gitlab/$group/$project.git
         git add .
-        git commit -m 'init'
+        git commit -m 'init' > /dev/null
         git push -u origin master
-        popd
+        popd > /dev/null
         sleep 1
     done < /gitlab_projects/Manifests
     sleep 15
