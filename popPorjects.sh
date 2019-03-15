@@ -44,12 +44,10 @@ while true; do
         fi
 
         pushd /gitlab_projects/$folder > /dev/null
-        rm -rf .git
-        git init
+        git remote remove origin
         git remote add origin https://$GIT_USER:$GIT_PASS@$gitlab/$group/$project.git
-        git add .
-        git commit -m 'init' > /dev/null
-        git push -u origin master
+        git push --set-upstream origin master
+        git push --tags
         popd > /dev/null
         sleep 1
     done < /gitlab_projects/Manifests
