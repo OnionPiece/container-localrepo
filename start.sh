@@ -129,7 +129,16 @@ cat >> /etc/haproxy/haproxy.cfg << EOF
 listen tcp80
     bind :80
     server local 127.0.0.1:8080 check
+
 EOF
+if [[ $GITLAB_IP != "" ]]; then
+cat >> /etc/haproxy/haproxy.cfg << EOF
+listen tcp22
+    bind :22
+    mode tcp
+    server gitlab $GITLAB_IP:22 check
+EOF
+fi
 haproxy -f /etc/haproxy/haproxy.cfg -c
 
 # setup a loop process to check and populate projects

@@ -24,7 +24,7 @@ while true; do
 
         groupId=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" $url/groups?search=$group | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
         if [[ $groupId == "" ]]; then
-            groupId=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -X POST $url/groups -d '{"name":"'$group'", "path":"'$group'", "visibility":"public", "lfs_enabled":true, "parent_id": null}' | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
+            groupId=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -X POST $url/groups -d '{"name":"'$group'", "path":"'$group'", "visibility":"public", "lfs_enabled":true, "parent_id": null, "request_access_enabled":true}' | python -mjson.tool | awk '/"id"/{print $2}' | cut -d ',' -f 1`
             sleep 2
         fi
 
@@ -34,8 +34,14 @@ while true; do
         fi
 
         echo "Found project $group/$project not populated into gitlab.local.io"
-        curl -s -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -k -X POST $url/projects -d '{"name":"'$project'", "path":"'$project'", "namespace_id": '$groupId', "default_branch": "master", "visibility":"public", "lfs_enabled":true}' > /dev/null
+        projectId=`curl -s -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -k -X POST $url/projects -d '{"name":"'$project'", "path":"'$project'", "namespace_id": '$groupId', "default_branch": "master", "visibility":"public", "lfs_enabled":true, "request_access_enabled":true}' | python -mjson.tool | awk -F'/' '/"events"/{print $7}'`
         sleep 1
+
+        attrCheckRes=`curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" $url/projects/$projectId | python -mjson.tool | egrep "(\"visibility\": \"public\"|\"request_access_enabled\": true)" | wc -l`
+        if [[ $attrCheckRes -ne 2 ]]; then
+            curl -s -k -H "Private-Token: $PRIVATE_TOKEN" -H "Content-Type: application/json" -X PUT $url/projects/$projectId -d '{"visibility":"public", "request_access_enabled":"true"}' > /dev/null
+            sleep 1
+        fi
 
         pushd /gitlab_projects/$folder > /dev/null
         rm -rf .git
