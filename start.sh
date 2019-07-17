@@ -21,6 +21,11 @@ EOF
 }
 
 
+function start_pypiserver(){
+    gunicorn -w4 -b 0.0.0.0:8090 -D 'pypiserver:app(root="/packages")'
+}
+
+
 function gen_certs(){
     openssl genrsa -out ca.key 2048
 
@@ -167,6 +172,7 @@ function start_popProject(){
 
 function main(){
     setup_repo
+    start_pypiserver
     gen_certs
     haproxy_cfg_prepare
     haproxy_cfg_complete

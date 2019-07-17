@@ -1,8 +1,9 @@
 ## Target
 To support cache/private-local-repo for:
 
-  - yum install packages
-  - curl/wget to download files
+  - yum install packages(8080)
+  - curl/wget to download files(80)
+  - pip install from local repo(8090)
   - git clone projects cloned from github
   - (potential) go get projects cloned from github
 
@@ -52,6 +53,10 @@ So the directory may looks like:
 
 
 If you want use link instead of directly copy things to the path, try to create hard links for files in mount path, **symbolic link will not work.**
+
+### .whl or .tar.gz files for pip
+
+Use `pip download` to prepare packages for your private repo.
 
 ### Projects cloned from github
 
@@ -121,6 +126,7 @@ To run, e.g. :
         -e GIT_USER=root -e GIT_PASS=Password \
         -e POP_PROJECTS="true" \
         -v /path/to/rpms/and/download/files:/var/www/html \
+        -v /path/to/whl/and/tar.gz/files:/packages \
         -v /path/to/projects/to/pop:/gitlab_projects
         onecache
 
