@@ -7,12 +7,13 @@
 #        https://stackoverflow.com/questions/47094066/http-request-to-https-request-using-haproxy
 
 
+repoHost=${REPO_HOST:-`hostname -i`}
 function setup_repo(){
     createrepo /var/www/html
     cat > /var/www/html/private.repo << EOF
 [private]
 name=private
-baseurl=http://`hostname -i`
+baseurl=http://$repoHost
 enabled=1
 gpgcheck=0
 EOF
