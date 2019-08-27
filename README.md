@@ -125,6 +125,7 @@ To run, e.g. :
         -e PRIVATE_TOKEN=d6T5bNvoPU_6WfdodCLr \
         -e GIT_USER=root -e GIT_PASS=Password \
         -e POP_PROJECTS="true" \
+        -e REPO_HOST="myrepo.example.com:8080" \
         -v /path/to/rpms/and/download/files:/var/www/html \
         -v /path/to/whl/and/tar.gz/files:/packages \
         -v /path/to/projects/to/pop:/gitlab_projects
@@ -139,6 +140,8 @@ where:
 
       - set GITLAB_IP, PRIVATE_TOKEN, GIT_USER, GIT_PASS. You can create and get PRIVATE_TOKEN in gitlab  > User Settings > Access Tokens.
       - mount path which contains projects to be imported to container path /gitlab_projects
+
+  - REPO_HOST or container hostname will be used in private.repo(check below). So for case like `docker run -p 10000:8080 -e REPO_HOST=<IP_OR_HOSTNAME>:10000 ...", private.repo will use "<IP_OR_HOSTNAME>:10000" in baseurl.
 
 ## How to use
 

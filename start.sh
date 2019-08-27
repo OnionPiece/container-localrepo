@@ -85,17 +85,19 @@ function get_download_path_begs(){
 
 function get_git_path_begs(){
     git_path_begs=""
-    while IFS='' read -r line || [[ -n "$line" ]]; do
-        line=`echo $line | tr -d "\n"`
-        if [[ $line == "" || ${line:0:1} == "#" ]]; then
-            continue
-        fi
-        groupProj=`echo $line | awk '{print $2}'`
-        if [[ $groupProj == "-" ]]; then
-            groupProj=`echo $line | awk '{print $3}' | cut -d '/' -f 4-5 | cut -d '.' -f 1`
-        fi
-        git_path_begs="$git_path_begs /$groupProj"
-    done < /gitlab_projects/Manifests
+    if [[ -f /gitlab_projects/Manifests ]]; then
+        while IFS='' read -r line || [[ -n "$line" ]]; do
+            line=`echo $line | tr -d "\n"`
+            if [[ $line == "" || ${line:0:1} == "#" ]]; then
+                continue
+            fi
+            groupProj=`echo $line | awk '{print $2}'`
+            if [[ $groupProj == "-" ]]; then
+                groupProj=`echo $line | awk '{print $3}' | cut -d '/' -f 4-5 | cut -d '.' -f 1`
+            fi
+            git_path_begs="$git_path_begs /$groupProj"
+        done < /gitlab_projects/Manifests
+    fi
     if [[ $git_path_begs == "" ]]; then
         echo "/NO_GIT_REPO_FOUND"
     else
@@ -171,6 +173,11 @@ function start_popProject(){
 }
 
 
+function start_self_check(){
+    nohup ./selfCheck.sh &
+}
+
+
 function main(){
     setup_repo
     start_pypiserver
@@ -179,6 +186,7 @@ function main(){
     haproxy_cfg_complete
     haproxy -f /etc/haproxy/haproxy.cfg -c
     start_popProject
+    start_self_check
     haproxy -f /etc/haproxy/haproxy.cfg
 }
 
