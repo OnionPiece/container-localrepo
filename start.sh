@@ -18,6 +18,11 @@ enabled=1
 gpgcheck=0
 EOF
     sed -i 's/^Listen 80$/Listen 8080/g' /etc/httpd/conf/httpd.conf
+    sed -i 's#^ErrorLog.*$#ErrorLog /proc/1/fd/1#g' /etc/httpd/conf/httpd.conf
+    rm -rf /run/httpd
+    mkdir -p /run/httpd
+    chown root:apache /run/httpd
+    chmod 710 /run/httpd
     httpd
 }
 
@@ -107,20 +112,28 @@ function get_git_path_begs(){
 
 
 function haproxy_cfg_prepare(){
-    sed -i '/\sdaemon$/atune.ssl.default-dh-param  2048' /etc/haproxy/haproxy.cfg
+    if [[ `grep -c 'tune.ssl.default-dh-param  2048' /etc/haproxy/haproxy.cfg` -eq 0 ]]; then
+        sed -i '/\sdaemon$/atune.ssl.default-dh-param  2048' /etc/haproxy/haproxy.cfg
+    fi
     sed -i 's/\sdaemon$/ #daemon/g' /etc/haproxy/haproxy.cfg
     sed -i '/^frontend/,$d' /etc/haproxy/haproxy.cfg
 
-    cat >> /etc/haproxy/haproxy.cfg << EOF
+    if [[ `grep -c "^listen tcp80" /etc/haproxy/haproxy.cfg` -eq 0 ]]; then
+        cat >> /etc/haproxy/haproxy.cfg << EOF
 listen tcp80
     bind :80
     server local 127.0.0.1:8080 check
+EOF
+    fi
 
+    if [[ `grep -c "^frontend main" /etc/haproxy/haproxy.cfg` -eq 0 ]]; then
+        cat >> /etc/haproxy/haproxy.cfg << EOF
 frontend main
     bind :443 ssl crt /ca.pem
     default_backend default_be
 
 EOF
+    fi
 }
 
 
@@ -128,12 +141,15 @@ function haproxy_cfg_complete(){
     dl_path_begs=`get_download_path_begs`
     git_path_begs=`get_git_path_begs`
     if [[ $GITLAB_IP == "" ]]; then
-        cat >> /etc/haproxy/haproxy.cfg << EOF
+        if [[ `grep -c "^backend default_be" /etc/haproxy/haproxy.cfg` -eq 0 ]]; then
+            cat >> /etc/haproxy/haproxy.cfg << EOF
 backend default_be
     server     default 127.0.0.1:8080 check
 EOF
+        fi
     else
-        cat >> /etc/haproxy/haproxy.cfg << EOF
+        if [[ `grep -c "^backend default_be" /etc/haproxy/haproxy.cfg` -eq 0 ]]; then
+            cat >> /etc/haproxy/haproxy.cfg << EOF
 backend default_be
     acl use_dl     path_beg $dl_path_begs
     acl use_gitlab path_beg $git_path_begs
@@ -162,6 +178,7 @@ listen tcp22
     server gitlab $GITLAB_IP:22 check
 
 EOF
+        fi
     fi
 }
 
@@ -174,7 +191,7 @@ function start_popProject(){
 
 
 function start_self_check(){
-    nohup ./selfCheck.sh &
+    nohup sleep 3 && ./selfCheck.sh &
 }
 
 
